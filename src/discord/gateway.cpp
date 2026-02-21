@@ -125,8 +125,8 @@ void Gateway::handle_message(const std::string& msg) {
                     {"intents", 33280},
                     {"properties", {
                         {"$os", "macos"},
-                        {"$browser", "native_client"},
-                        {"$device", "native_client"}
+                        {"$browser", "chudcord"},
+                        {"$device", "chudcord"}
                     }}
                 }}
             };

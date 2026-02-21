@@ -1,11 +1,15 @@
 cmake_minimum_required(VERSION 3.16)
-project(native_discord_client LANGUAGES CXX)
+project(chudcord LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # Fix for older subprojects using legacy CMake versions (like websocketpp)
 set(CMAKE_POLICY_VERSION_MINIMUM 3.5)
+
+if(APPLE)
+    add_definitions(-DGL_SILENCE_DEPRECATION)
+endif()
 
 # Dependencies via Homebrew
 find_package(OpenSSL REQUIRED)

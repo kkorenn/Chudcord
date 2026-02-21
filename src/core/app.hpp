@@ -26,6 +26,9 @@ namespace discord {
         std::string reply_content;
         std::string reply_guild_id;
         
+        // Attachment state
+        std::string attached_file_path;
+        
         // Use map for easier lookup by ID
         std::vector<Guild> guilds; // Vector for ordered display, or map for lookups? UI needs order. Vector is better for UI.
         std::unordered_map<std::string, Guild*> guild_map; // Helper for fast lookup

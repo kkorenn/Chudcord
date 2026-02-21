@@ -26,7 +26,7 @@ namespace discord {
         glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);  // 3.2+ on macOS requires core profile
         glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);            // Required on macOS
 
-        m_window = glfwCreateWindow(1280, 720, "Native Discord Client", NULL, NULL);
+        m_window = glfwCreateWindow(1280, 720, "Chudcord", NULL, NULL);
         if (!m_window) {
             std::cerr << "Failed to create GLFW window" << std::endl;
             return false;
@@ -290,24 +290,40 @@ namespace discord {
         // Input Area
         ImGui::Separator();
 
-        // Reply preview if active
-        if (!state.reply_msg_id.empty()) {
-            std::string preview = state.reply_content;
-            if (preview.length() > 50) preview = preview.substr(0, 47) + "...";
-            ImGui::TextColored(ImVec4(0.4f, 0.7f, 1.0f, 1.0f), "Replying to: %s", preview.c_str());
-            ImGui::SameLine();
-            if (ImGui::SmallButton("Cancel Reply")) {
-                if (on_reply_selected) on_reply_selected("", "", "", "");
+        // Reply or Attachment preview if active
+        if (!state.reply_msg_id.empty() || !state.attached_file_path.empty()) {
+            if (!state.reply_msg_id.empty()) {
+                std::string preview = state.reply_content;
+                if (preview.length() > 50) preview = preview.substr(0, 47) + "...";
+                ImGui::TextColored(ImVec4(0.4f, 0.7f, 1.0f, 1.0f), "Replying to: %s", preview.c_str());
+                ImGui::SameLine();
+                if (ImGui::SmallButton("Cancel Reply")) {
+                    if (on_reply_selected) on_reply_selected("", "", "", "");
+                }
+            }
+            if (!state.attached_file_path.empty()) {
+                std::string filename = state.attached_file_path.substr(state.attached_file_path.find_last_of("/\\") + 1);
+                ImGui::TextColored(ImVec4(0.4f, 1.0f, 0.4f, 1.0f), "Attached: %s", filename.c_str());
+                ImGui::SameLine();
+                if (ImGui::SmallButton("Clear Attachment")) {
+                    if (on_clear_attachment) on_clear_attachment();
+                }
             }
         }
+
+        // Horizontal layout for [+] Button and Input
+        if (ImGui::Button("+", ImVec2(30, 0))) {
+            if (on_file_picker_requested) on_file_picker_requested();
+        }
+        ImGui::SameLine();
 
         ImGui::PushItemWidth(-1);
         bool reclaim_focus = false;
         
         if (ImGui::InputText("##Input", m_input_buffer, IM_ARRAYSIZE(m_input_buffer), ImGuiInputTextFlags_EnterReturnsTrue)) {
             std::string content(m_input_buffer);
-            if (!content.empty() && !state.current_channel_id.empty()) {
-                if (on_send_message) on_send_message(content, state.reply_msg_id);
+            if ((!content.empty() || !state.attached_file_path.empty()) && !state.current_channel_id.empty()) {
+                if (on_send_message) on_send_message(content, state.reply_msg_id, state.attached_file_path);
                 memset(m_input_buffer, 0, sizeof(m_input_buffer));
                 m_scroll_to_bottom = true; // Force scroll on self-send
                 reclaim_focus = true;

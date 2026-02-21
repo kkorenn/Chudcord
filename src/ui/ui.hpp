@@ -27,12 +27,14 @@ namespace discord {
         void render(const State& state);
         
         // Input handling
-        std::function<void(const std::string&, const std::string&)> on_send_message; // content, reply_id
+        std::function<void(const std::string&, const std::string&, const std::string&)> on_send_message; // content, reply_id, file_path
         std::function<void(const std::string&)> on_channel_selected;
         std::function<void(const std::string&)> on_guild_selected;
         std::function<void(const std::string&, const std::string&)> on_load_icon;
         std::function<void(const std::string&, const std::string&, const std::string&, const std::string&)> on_reply_selected; // msg_id, username, content, guild_id
         std::function<void(const std::string&, const std::string&)> on_load_attachment; // att_id, url
+        std::function<void()> on_file_picker_requested;
+        std::function<void()> on_clear_attachment;
 
         // Texture management (call from main thread)
         void update_icon_texture(const std::string& guild_id, unsigned char* data, int width, int height);

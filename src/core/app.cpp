@@ -88,6 +88,11 @@ namespace discord {
                             }
                         }
                         m_state.messages[current_cid] = msgs;
+                        
+                        // Send ACK for the last message
+                        if (!msgs.empty()) {
+                            m_rest->ack_message(current_cid, msgs.back().id);
+                        }
                     } else {
                         m_state.channel_error = "No Access";
                     }
@@ -140,20 +145,45 @@ namespace discord {
             }
         };
 
-        m_ui->on_send_message = [this](const std::string& content, const std::string& reply_id) {
+        m_ui->on_file_picker_requested = [this]() {
+            std::thread([this]() {
+                // macOS specific file picker via osascript - allow all files
+                std::string cmd = "osascript -e 'POSIX path of (choose file with prompt \"Select a file to send\")'";
+                FILE* pipe = popen(cmd.c_str(), "r");
+                if (pipe) {
+                    char buffer[1024];
+                    std::string result = "";
+                    while (fgets(buffer, sizeof(buffer), pipe) != NULL) {
+                        result += buffer;
+                    }
+                    pclose(pipe);
+                    if (!result.empty()) {
+                        // Remove newline
+                        result.erase(result.find_last_not_of(" \n\r\t") + 1);
+                        post_task([this, result]() {
+                            std::lock_guard<std::recursive_mutex> lock(m_state_mutex);
+                            m_state.attached_file_path = result;
+                        });
+                    }
+                }
+            }).detach();
+        };
+
+        m_ui->on_send_message = [this](const std::string& content, const std::string& reply_id, const std::string& file_path) {
             std::string cid, gid;
             {
                 std::lock_guard<std::recursive_mutex> lock(m_state_mutex);
                 cid = m_state.current_channel_id;
                 gid = m_state.reply_guild_id;
-                // Clear reply state after sending
+                // Clear state after sending
                 m_state.reply_msg_id = "";
                 m_state.reply_username = "";
                 m_state.reply_content = "";
                 m_state.reply_guild_id = "";
+                m_state.attached_file_path = "";
             }
             if (!cid.empty()) {
-                m_rest->send_message(cid, content, gid, reply_id, [cid](bool s, const json& d){
+                m_rest->send_message(cid, content, gid, reply_id, file_path, [cid](bool s, const json& d){
                     if (!s) {
                         std::cerr << "[App] Failed to send message to " << cid << ". Response: " << d.dump() << std::endl;
                     }
@@ -192,6 +222,11 @@ namespace discord {
                     curl_easy_cleanup(curl);
                 }
             }).detach();
+        };
+
+        m_ui->on_clear_attachment = [this]() {
+            std::lock_guard<std::recursive_mutex> lock(m_state_mutex);
+            m_state.attached_file_path = "";
         };
 
         m_gateway = std::make_unique<Gateway>([this](const std::string& event, const json& data) {
@@ -245,13 +280,16 @@ namespace discord {
                                         m_state.guild_map[existing.id] = &existing;
                                     }
                                 }
-                                        } else if (event == "MESSAGE_CREATE") {
-                                            try {
-                                                Message m = data.get<Message>();
-                                                m_state.messages[m.channel_id].push_back(m);
-                                                // std::cout << "[App] Real-time message in channel " << m.channel_id << ": " << m.content << std::endl;
-                                            } catch (const std::exception& e) {
-                                                std::cerr << "[App] Error parsing Message: " << e.what() << std::endl;
+                                                    } else if (event == "MESSAGE_CREATE") {
+                                                        try {
+                                                            Message m = data.get<Message>();
+                                                            m_state.messages[m.channel_id].push_back(m);
+                                                            
+                                                            // Auto-ACK if this is the current channel
+                                                            if (m.channel_id == m_state.current_channel_id) {
+                                                                m_rest->ack_message(m.channel_id, m.id);
+                                                            }
+                                                        } catch (const std::exception& e) {                                                std::cerr << "[App] Error parsing Message: " << e.what() << std::endl;
                                             }
                                         } else if (event == "GUILD_CREATE") {
                                             try {
