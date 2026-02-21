@@ -75,6 +75,26 @@ namespace discord {
         if (j.contains("guild_id")) j.at("guild_id").get_to(mr.guild_id);
     }
 
+    struct Attachment {
+        std::string id;
+        std::string filename;
+        std::string url;
+        std::string proxy_url;
+        int width = 0;
+        int height = 0;
+        std::string content_type;
+    };
+
+    inline void from_json(const json& j, Attachment& a) {
+        j.at("id").get_to(a.id);
+        j.at("filename").get_to(a.filename);
+        j.at("url").get_to(a.url);
+        if (j.contains("proxy_url")) j.at("proxy_url").get_to(a.proxy_url);
+        if (j.contains("width") && !j["width"].is_null()) j.at("width").get_to(a.width);
+        if (j.contains("height") && !j["height"].is_null()) j.at("height").get_to(a.height);
+        if (j.contains("content_type") && !j["content_type"].is_null()) j.at("content_type").get_to(a.content_type);
+    }
+
     struct Message {
         std::string id;
         std::string channel_id;
@@ -83,6 +103,7 @@ namespace discord {
         std::string content;
         std::string timestamp;
         std::optional<MessageReference> message_reference;
+        std::vector<Attachment> attachments;
     };
 
     inline void from_json(const json& j, Message& m) {
@@ -95,6 +116,12 @@ namespace discord {
             j.at("timestamp").get_to(m.timestamp);
         if (j.contains("message_reference") && !j["message_reference"].is_null()) {
             m.message_reference = j["message_reference"].get<MessageReference>();
+        }
+        if (j.contains("attachments") && j["attachments"].is_array()) {
+            m.attachments.clear();
+            for (const auto& a_json : j["attachments"]) {
+                m.attachments.push_back(a_json.get<Attachment>());
+            }
         }
     }
 

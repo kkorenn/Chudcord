@@ -87,6 +87,16 @@ namespace discord {
         m_guild_icons[guild_id] = texture;
     }
 
+    void UI::update_attachment_texture(const std::string& att_id, unsigned char* data, int width, int height) {
+        GLuint texture;
+        glGenTextures(1, &texture);
+        glBindTexture(GL_TEXTURE_2D, texture);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
+        m_attachments[att_id] = texture;
+    }
+
     void UI::render(const State& state) {
         // Create a full-screen window for the layout
         ImGui::SetNextWindowPos(ImVec2(0, 0));
@@ -239,7 +249,28 @@ namespace discord {
                             if (on_reply_selected) on_reply_selected(msg.id, msg.author.username, msg.content, msg.guild_id);
                         }
 
-                        ImGui::TextWrapped("%s", msg.content.c_str());
+                        if (!msg.content.empty()) {
+                            ImGui::TextWrapped("%s", msg.content.c_str());
+                        }
+
+                        // Render Attachments
+                        for (const auto& att : msg.attachments) {
+                            if (att.content_type.starts_with("image/")) {
+                                auto it_att = m_attachments.find(att.id);
+                                if (it_att != m_attachments.end()) {
+                                    float aspect = (float)att.height / (float)att.width;
+                                    float draw_w = std::min(400.0f, (float)att.width);
+                                    float draw_h = draw_w * aspect;
+                                    ImGui::Image((void*)(intptr_t)it_att->second, ImVec2(draw_w, draw_h));
+                                } else {
+                                    if (on_load_attachment) on_load_attachment(att.id, att.url);
+                                    ImGui::TextDisabled("[Loading Image: %s]", att.filename.c_str());
+                                }
+                            } else {
+                                ImGui::TextColored(ImVec4(0.4f, 0.4f, 1.0f, 1.0f), "[Attachment: %s]", att.filename.c_str());
+                            }
+                        }
+
                         ImGui::Separator();
                         ImGui::PopID();
                     }

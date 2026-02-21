@@ -161,6 +161,39 @@ namespace discord {
             }
         };
 
+        static std::set<std::string> requested_attachments;
+        m_ui->on_load_attachment = [this](const std::string& att_id, const std::string& url) {
+            if (requested_attachments.count(att_id)) return;
+            requested_attachments.insert(att_id);
+
+            std::thread([this, att_id, url]() {
+                CURL* curl = curl_easy_init();
+                if (curl) {
+                    std::string buffer;
+                    curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
+                    curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, +[](void* contents, size_t size, size_t nmemb, void* userp) -> size_t {
+                        ((std::string*)userp)->append((char*)contents, size * nmemb);
+                        return size * nmemb;
+                    });
+                    curl_easy_setopt(curl, CURLOPT_WRITEDATA, &buffer);
+                    curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
+                    
+                    CURLcode res = curl_easy_perform(curl);
+                    if (res == CURLE_OK) {
+                        int width, height, channels;
+                        unsigned char* data = stbi_load_from_memory((unsigned char*)buffer.data(), (int)buffer.size(), &width, &height, &channels, 4);
+                        if (data) {
+                            post_task([this, att_id, data, width, height]() {
+                                m_ui->update_attachment_texture(att_id, data, width, height);
+                                stbi_image_free(data);
+                            });
+                        }
+                    }
+                    curl_easy_cleanup(curl);
+                }
+            }).detach();
+        };
+
         m_gateway = std::make_unique<Gateway>([this](const std::string& event, const json& data) {
             // Gateway callback runs on gateway thread
             // We copy data to ensure lifetime

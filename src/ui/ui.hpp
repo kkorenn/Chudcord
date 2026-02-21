@@ -32,9 +32,11 @@ namespace discord {
         std::function<void(const std::string&)> on_guild_selected;
         std::function<void(const std::string&, const std::string&)> on_load_icon;
         std::function<void(const std::string&, const std::string&, const std::string&, const std::string&)> on_reply_selected; // msg_id, username, content, guild_id
+        std::function<void(const std::string&, const std::string&)> on_load_attachment; // att_id, url
 
         // Texture management (call from main thread)
         void update_icon_texture(const std::string& guild_id, unsigned char* data, int width, int height);
+        void update_attachment_texture(const std::string& attachment_id, unsigned char* data, int width, int height);
         void clear_reply(); // Helper for UI to clear reply state locally if needed
 
     private:
@@ -44,6 +46,7 @@ namespace discord {
         std::string m_last_channel_id;
 
         std::unordered_map<std::string, unsigned int> m_guild_icons;
+        std::unordered_map<std::string, unsigned int> m_attachments;
     };
 
 }
